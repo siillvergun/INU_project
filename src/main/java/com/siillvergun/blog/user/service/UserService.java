@@ -31,6 +31,13 @@ public class UserService {
     /// Create(Request DTO)
     @Transactional
     public UserResponseDto join(UserJoinRequestDto joinRequest) {
+        if (userRepository.existsByEmail(joinRequest.getEmail())) {
+            throw new CustomException(ErrorCode.DUPLICATE_EMAIL);
+        }
+        if (userRepository.existsByNickname(joinRequest.getNickname())) {
+            throw new CustomException(ErrorCode.DUPLICATE_NICKNAME);
+        }
+
         // 평문 비밀번호 암호화
         String encodedPassword = passwordEncoder.encode(joinRequest.getPassword());
 

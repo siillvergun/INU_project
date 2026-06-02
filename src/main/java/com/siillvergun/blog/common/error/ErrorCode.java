@@ -12,6 +12,8 @@ Http상태 및 메시지를 가지고 있는 에러 코드 상수
 @AllArgsConstructor
 public enum ErrorCode {
     USER_NOT_FOUND("4040", "유저를 찾을 수 없습니다", HttpStatus.NOT_FOUND),
+    DUPLICATE_EMAIL("4090", "이미 사용 중인 이메일입니다.", HttpStatus.CONFLICT),
+    DUPLICATE_NICKNAME("4091", "이미 사용 중인 닉네임입니다.", HttpStatus.CONFLICT),
     POST_NOT_FOUND("4041", "게시글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     UNAUTHORIZED_ACCESS("4042", "허용되지 않은 접근입니다.", HttpStatus.NOT_FOUND),
     INVALID_INPUT_VALUE("4000", "입력값이 올바르지 않습니다.", HttpStatus.BAD_REQUEST),

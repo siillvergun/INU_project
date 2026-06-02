@@ -18,4 +18,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // Optional은 "값이 있을 수도 있고, 없을 수도 있는 상태"를 감싸는 일종의 상자(Wrapper)
     // 사용하는 이유는 nullpointexception을 방지하기 위해서
     Optional<User> findByEmail(String email);
+
+    boolean existsByEmail(String email);
+
+    boolean existsByNickname(String nickname);
 }
