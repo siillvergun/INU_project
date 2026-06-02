@@ -87,7 +87,7 @@ public class CommentService {
     }
 
     @Transactional
-    public void toggleLike(Long userId, Long commentId) {
+    public CommentResponseDto toggleLike(Long userId, Long commentId) {
         // 1. 게시글과 유저 존재 확인
         User user = userService.findUserById(userId);
         Comment comment = findByCommentId(commentId);
@@ -106,6 +106,8 @@ public class CommentService {
             comment.increaseLikeCount(); // 2. post 테이블의 카운트 +1 (Dirty Checking)
             log.info("댓글 좋아요 등록 - user: {}, comment: {}", userId, commentId);
         }
+
+        return CommentResponseDto.from(comment);
     }
 
     // 작성자 검증 로직

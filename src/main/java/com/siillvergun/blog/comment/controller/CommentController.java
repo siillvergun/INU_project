@@ -58,12 +58,12 @@ public class CommentController {
 
 
     @PostMapping("/me/{commentId}/like")
-    public ResponseEntity<Void> toggleCommentLike(
+    public ResponseEntity<CommentResponseDto> toggleCommentLike(
             @PathVariable Long commentId,
             Authentication authentication
     ) {
         Long userId = userService.getCurrentUserId(authentication);
-        commentService.toggleLike(userId, commentId);
-        return ResponseEntity.ok().build();
+        CommentResponseDto response = commentService.toggleLike(userId, commentId);
+        return ResponseEntity.ok(response);
     }
 }

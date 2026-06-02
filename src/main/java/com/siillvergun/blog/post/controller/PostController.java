@@ -75,12 +75,12 @@ public class PostController {
     }
 
     @PostMapping("/me/{postId}/like")
-    public ResponseEntity<Void> togglePostLike(
+    public ResponseEntity<PostResponseDto> togglePostLike(
             @PathVariable Long postId,
             Authentication authentication
     ) {
         Long userId = userService.getCurrentUserId(authentication);
-        postService.toggleLike(userId, postId);
-        return ResponseEntity.ok().build();
+        PostResponseDto response = postService.toggleLike(userId, postId);
+        return ResponseEntity.ok(response);
     }
 }

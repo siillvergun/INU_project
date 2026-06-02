@@ -52,7 +52,7 @@ public class PostService {
 
     // 작성자로 조회
     public List<PostResponseDto> getPostByAuthor(Long userId) {
-        List<Post> postsByUserId = postRepository.findByAuthorUserId(userId);
+        List<Post> postsByUserId = postRepository.findByAuthorUserIdOrderByCreatedAtDesc(userId);
 
         return postsByUserId.stream()
                 .map(PostResponseDto::from)
@@ -99,7 +99,7 @@ public class PostService {
     }
 
     @Transactional
-    public void toggleLike(Long userId, Long postId) {
+    public PostResponseDto toggleLike(Long userId, Long postId) {
         // 1. 게시글과 유저 존재 확인
         Post post = findByPostId(postId);
         User user = userService.findUserById(userId);
@@ -118,5 +118,7 @@ public class PostService {
             post.increaseLikeCount(); // 2. post 테이블의 카운트 +1 (Dirty Checking)
             log.info("게시글 좋아요 등록 - user: {}, comment: {}", userId, postId);
         }
+
+        return PostResponseDto.from(post);
     }
 }

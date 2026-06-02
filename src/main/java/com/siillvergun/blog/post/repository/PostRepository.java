@@ -13,9 +13,9 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     // userId로 작성자 찾기
     // @EntityGraph를 쓰면 fetch join 쿼리를 직접 안 짜도 됨.
     @EntityGraph(attributePaths = {"author"})
-    List<Post> findByAuthorUserId(Long userId);
+    List<Post> findByAuthorUserIdOrderByCreatedAtDesc(Long userId);
 
     // fetch join - N+1문제 방지
-    @Query("select p from Post p join fetch p.author")
+    @Query("select p from Post p join fetch p.author order by p.createdAt desc")
     List<Post> findAllWithAuthor();
 }

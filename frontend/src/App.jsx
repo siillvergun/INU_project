@@ -238,11 +238,15 @@ export default function App() {
   async function togglePostLike(postId) {
     if (!requireLogin()) return;
     try {
-      await request(`/posts/me/${postId}/like`, {
+      const updatedPost = await request(`/posts/me/${postId}/like`, {
         method: "POST",
         headers: authHeaders(user.token)
       });
-      await loadPosts(postScope);
+      setPosts((prevPosts) =>
+        prevPosts.map((post) =>
+          post.postId === postId ? { ...post, ...updatedPost } : post
+        )
+      );
     } catch (error) {
       setMessage({ type: "error", text: `좋아요 처리 실패: ${error.message}` });
     }
@@ -251,11 +255,15 @@ export default function App() {
   async function toggleCommentLike(commentId) {
     if (!requireLogin()) return;
     try {
-      await request(`/comments/me/${commentId}/like`, {
+      const updatedComment = await request(`/comments/me/${commentId}/like`, {
         method: "POST",
         headers: authHeaders(user.token)
       });
-      await loadComments();
+      setComments((prevComments) =>
+        prevComments.map((comment) =>
+          comment.commentId === commentId ? { ...comment, ...updatedComment } : comment
+        )
+      );
     } catch (error) {
       setMessage({ type: "error", text: `좋아요 처리 실패: ${error.message}` });
     }
