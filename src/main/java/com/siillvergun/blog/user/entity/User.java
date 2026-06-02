@@ -17,6 +17,7 @@ import java.util.List;
 @Entity // 이 클래스를 Entity로 지정
 @Table(name = "users") // sql예약어에 USER가 있어서 테이블명을 따로 지정. 그냥 USER는 사용 불가
 public class User extends BaseEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY) // 원래 ++seq했던걸 이 어노테이션을 통해 자동으로 증가하게 만들 수 있음
     private Long userId;
