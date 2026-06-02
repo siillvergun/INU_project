@@ -22,6 +22,15 @@ export default async function handler(req, res) {
   }
 
   const path = typeof req.query.path === "string" ? req.query.path : "";
+  if (!path) {
+    res.status(200).json({
+      service: "Vercel API proxy",
+      status: "ok",
+      backendUrl: BACKEND_URL
+    });
+    return;
+  }
+
   if (!path.startsWith("/")) {
     res.status(400).json({ message: "path query must start with /" });
     return;
