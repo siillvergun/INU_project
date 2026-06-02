@@ -55,6 +55,7 @@ public class SecurityConfig {
         // 나머지 요청은 인증 필요
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers("/", "/health").permitAll()
                 .requestMatchers("/users/join", "/auth/login", "/users", "/posts", "/comments").permitAll()
                 .anyRequest().authenticated()
         );

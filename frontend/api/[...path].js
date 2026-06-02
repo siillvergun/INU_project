@@ -1,5 +1,11 @@
 const BACKEND_URL = process.env.BACKEND_URL || "http://54.91.130.165";
 
+export const config = {
+  api: {
+    bodyParser: false
+  }
+};
+
 const HOP_BY_HOP_HEADERS = new Set([
   "host",
   "connection",
