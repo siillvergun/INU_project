@@ -59,4 +59,4 @@ jobs:
             git pull --ff-only origin main
             test -f .env
             docker compose up -d --build --remove-orphans
-            docker image prune -f
+            docker image prune -f || true
