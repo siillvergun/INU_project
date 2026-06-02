@@ -22,4 +22,10 @@ VITE_API_BASE_URL=https://your-backend-domain
 ```
 
 If the backend only has HTTP, leave `VITE_API_BASE_URL` empty or set it to `/api`.
-Vercel will proxy `/api/*` to the EC2 Nginx endpoint configured in `vercel.json`.
+The Vercel serverless function under `api/[...path].js` proxies `/api/*` to EC2.
+
+Optionally set this Vercel server environment variable if the EC2 endpoint changes:
+
+```text
+BACKEND_URL=http://54.91.130.165
+```
