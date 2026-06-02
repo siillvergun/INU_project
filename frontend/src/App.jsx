@@ -30,7 +30,7 @@ function loadDraft() {
     const saved = JSON.parse(localStorage.getItem(DRAFT_STORAGE_KEY));
     if (saved?.title || saved?.content) return { ...emptyDraft, ...saved };
   } catch {
-    // Fall back to the keys used by templates/post/write.html.
+    // Fall back to the keys used by the previous server-rendered form.
   }
 
   return {
