@@ -30,19 +30,17 @@ public class SecurityConfig {
     // 어떤 요청을 허용할지, 어떤 요청을 막을지, 어떤 인증 방식을 쓸지, 어떤 필터를 넣을지
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         // REST API 서버는 보통 세션을 쓰지 않고 토큰(JWT 등)을 쓰기 때문에, 테스트 편의를 위해 CSRF(사이트 간 요청 위조) 방어 기능을 잠시 꺼두는 것
-        http.csrf(csrf -> csrf.disable())
-                // H2 콘솔은 iframe을 사용하므로 sameOrigin 허용
-                .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
+        http.csrf(csrf -> csrf.disable());
 
         // JWT는 세션 기반이 아니라 토큰 기반이므로 STATELESS
         http.sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
         );
 
-        // 회원가입, 로그인, H2 콘솔은 인증 없이 허용
+        // 회원가입, 로그인, 공개 조회 요청은 인증 없이 허용
         // 나머지 요청은 인증 필요
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers("/users/join", "/auth/login", "/h2-console/**", "/users", "/posts", "/comments").permitAll()
+                .requestMatchers("/users/join", "/auth/login", "/users", "/posts", "/comments").permitAll()
                 .requestMatchers("/", "/index.html", "/static/**", "/css/**", "/js/**").permitAll()
                 .anyRequest().authenticated()
         );

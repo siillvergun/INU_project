@@ -1,17 +1,13 @@
 jwt:
-  secret: this-is-my-very-long-secret-key-for-local-dev-123456
+  secret: ${JWT_SECRET:this-is-my-very-long-secret-key-for-local-dev-123456}
   expiration: 3600000
 
 spring:
   datasource:
-    url: jdbc:h2:mem:spring_board;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
-    username: sa
-    password:
-    driver-class-name: org.h2.Driver
-
-  h2:
-    console:
-      enabled: true
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:spring_board}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
