@@ -1,4 +1,7 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? "/api" : "");
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+const normalizedApiBaseUrl = configuredApiBaseUrl?.replace(/\/$/, "");
+const useVercelProxy = import.meta.env.PROD && (!normalizedApiBaseUrl || normalizedApiBaseUrl === "/api");
+const API_BASE_URL = configuredApiBaseUrl || "";
 
 async function parseResponse(response) {
   const text = await response.text();
@@ -26,7 +29,9 @@ export async function request(path, options = {}) {
     ...options.headers
   };
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const url = useVercelProxy ? `/api/proxy?path=${encodeURIComponent(path)}` : `${API_BASE_URL}${path}`;
+
+  const response = await fetch(url, {
     ...options,
     headers,
     body: options.body ? JSON.stringify(options.body) : undefined

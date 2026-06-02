@@ -21,12 +21,17 @@ export default async function handler(req, res) {
     return;
   }
 
-  const path = Array.isArray(req.query.path) ? req.query.path.join("/") : req.query.path || "";
-  const targetUrl = new URL(`/${path}`, BACKEND_URL);
+  const path = typeof req.query.path === "string" ? req.query.path : "";
+  if (!path.startsWith("/")) {
+    res.status(400).json({ message: "path query must start with /" });
+    return;
+  }
+
+  const targetUrl = new URL(path, BACKEND_URL);
 
   for (const [key, value] of Object.entries(req.query)) {
     if (key !== "path") {
-      targetUrl.searchParams.append(key, value);
+      targetUrl.searchParams.append(key, Array.isArray(value) ? value.join(",") : value);
     }
   }
 
@@ -37,21 +42,24 @@ export default async function handler(req, res) {
     }
   }
 
-  const response = await fetch(targetUrl, {
-    method: req.method,
-    headers,
-    body: ["GET", "HEAD"].includes(req.method) ? undefined : await readBody(req)
-  });
+  try {
+    const response = await fetch(targetUrl, {
+      method: req.method,
+      headers,
+      body: ["GET", "HEAD"].includes(req.method) ? undefined : await readBody(req)
+    });
 
-  res.status(response.status);
-  response.headers.forEach((value, key) => {
-    if (!HOP_BY_HOP_HEADERS.has(key.toLowerCase())) {
-      res.setHeader(key, value);
-    }
-  });
+    res.status(response.status);
+    response.headers.forEach((value, key) => {
+      if (!HOP_BY_HOP_HEADERS.has(key.toLowerCase())) {
+        res.setHeader(key, value);
+      }
+    });
 
-  const buffer = Buffer.from(await response.arrayBuffer());
-  res.send(buffer);
+    res.send(Buffer.from(await response.arrayBuffer()));
+  } catch (error) {
+    res.status(502).json({ message: `Backend proxy failed: ${error.message}` });
+  }
 }
 
 function readBody(req) {
