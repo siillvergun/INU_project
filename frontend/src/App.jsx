@@ -65,12 +65,19 @@ export default function App() {
   const [selectedPostId, setSelectedPostId] = useState(null);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [postScope, setPostScope] = useState("all");
+  const [page, setPage] = useState("home");
   const [modal, setModal] = useState(null);
   const [message, setMessage] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
   const [loginForm, setLoginForm] = useState(emptyLogin);
   const [registerForm, setRegisterForm] = useState(emptyRegister);
   const [draft, setDraft] = useState(loadDraft);
+  const [editDraft, setEditDraft] = useState(emptyDraft);
+  const [isEditingPost, setIsEditingPost] = useState(false);
   const [commentContent, setCommentContent] = useState("");
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editCommentContent, setEditCommentContent] = useState("");
   const [formError, setFormError] = useState("");
 
   const selectedPost = useMemo(
@@ -142,6 +149,10 @@ export default function App() {
     setModal(null);
     setFormError("");
     setCommentContent("");
+    setIsEditingPost(false);
+    setEditDraft(emptyDraft);
+    setEditingCommentId(null);
+    setEditCommentContent("");
     if (modal === "post") setSelectedPostId(null);
   }
 
@@ -156,9 +167,11 @@ export default function App() {
     const nextUser = {
       userId: me.userId,
       nickname: me.nickname,
+      email: me.email,
       token: loginData.accessToken
     };
     setUser(nextUser);
+    setProfile(me);
     saveAuth(nextUser);
   }
 
@@ -203,10 +216,56 @@ export default function App() {
 
   function logout() {
     setUser(null);
+    setProfile(null);
+    setPage("home");
     clearAuth();
     setPostScope("all");
     loadPosts("all");
     setMessage({ type: "success", text: "로그아웃되었습니다." });
+  }
+
+  async function openProfilePage() {
+    if (!requireLogin()) return;
+    setPage("profile");
+    setModal(null);
+    setLoadingProfile(true);
+    try {
+      const nextProfile = await request("/users/me", {
+        headers: authHeaders(user.token)
+      });
+      setProfile(nextProfile);
+      const nextUser = {
+        ...user,
+        userId: nextProfile.userId,
+        nickname: nextProfile.nickname,
+        email: nextProfile.email
+      };
+      setUser(nextUser);
+      saveAuth(nextUser);
+    } catch (error) {
+      setMessage({ type: "error", text: `내 정보를 불러올 수 없습니다: ${error.message}` });
+    } finally {
+      setLoadingProfile(false);
+    }
+  }
+
+  async function deleteUser() {
+    if (!requireLogin() || !window.confirm("정말 회원 탈퇴를 진행하시겠습니까?")) return;
+    try {
+      await request("/users/me", {
+        method: "DELETE",
+        headers: authHeaders(user.token)
+      });
+      setUser(null);
+      setProfile(null);
+      setPage("home");
+      clearAuth();
+      await loadPosts("all");
+      await loadComments();
+      setMessage({ type: "success", text: "회원 탈퇴가 완료되었습니다." });
+    } catch (error) {
+      setMessage({ type: "error", text: `회원 탈퇴 실패: ${error.message}` });
+    }
   }
 
   async function handleCreatePost(event) {
@@ -232,6 +291,45 @@ export default function App() {
       setMessage({ type: "success", text: "글이 작성되었습니다." });
     } catch (error) {
       setFormError(`작성 실패: ${error.message}`);
+    }
+  }
+
+  function startEditingPost() {
+    if (!selectedPost) return;
+    setFormError("");
+    setEditDraft({
+      title: selectedPost.title || "",
+      content: selectedPost.content || ""
+    });
+    setIsEditingPost(true);
+  }
+
+  async function handleUpdatePost(event) {
+    event.preventDefault();
+    if (!requireLogin() || !selectedPost) return;
+    if (!editDraft.title.trim() || !editDraft.content.trim()) {
+      setFormError("제목과 내용을 모두 입력해주세요.");
+      return;
+    }
+
+    try {
+      const updatedPost = await request(`/posts/me/${selectedPost.postId}`, {
+        method: "PATCH",
+        headers: authHeaders(user.token),
+        body: { title: editDraft.title.trim(), content: editDraft.content.trim() }
+      });
+      setPosts((prevPosts) =>
+        prevPosts.map((post) =>
+          post.postId === selectedPost.postId ? { ...post, ...updatedPost } : post
+        )
+      );
+      setIsEditingPost(false);
+      setEditDraft(emptyDraft);
+      setFormError("");
+      await loadComments();
+      setMessage({ type: "success", text: "게시글이 수정되었습니다." });
+    } catch (error) {
+      setFormError(`수정 실패: ${error.message}`);
     }
   }
 
@@ -291,6 +389,38 @@ export default function App() {
     }
   }
 
+  function startEditingComment(comment) {
+    setEditingCommentId(comment.commentId);
+    setEditCommentContent(comment.content || "");
+  }
+
+  async function updateComment(event, commentId) {
+    event.preventDefault();
+    if (!requireLogin()) return;
+    if (!editCommentContent.trim()) {
+      setMessage({ type: "error", text: "댓글 내용을 입력해주세요." });
+      return;
+    }
+
+    try {
+      const updatedComment = await request(`/comments/me/${commentId}`, {
+        method: "PATCH",
+        headers: authHeaders(user.token),
+        body: { content: editCommentContent.trim() }
+      });
+      setComments((prevComments) =>
+        prevComments.map((comment) =>
+          comment.commentId === commentId ? { ...comment, ...updatedComment } : comment
+        )
+      );
+      setEditingCommentId(null);
+      setEditCommentContent("");
+      setMessage({ type: "success", text: "댓글이 수정되었습니다." });
+    } catch (error) {
+      setMessage({ type: "error", text: `댓글 수정 실패: ${error.message}` });
+    }
+  }
+
   async function deletePost(postId) {
     if (!requireLogin() || !window.confirm("정말 이 게시글을 삭제하시겠습니까?")) return;
     try {
@@ -322,17 +452,23 @@ export default function App() {
 
   function openPost(postId) {
     setSelectedPostId(postId);
+    setIsEditingPost(false);
+    setEditDraft(emptyDraft);
+    setEditingCommentId(null);
+    setEditCommentContent("");
     openModal("post");
     loadComments();
   }
 
   async function showMyPosts() {
     if (!requireLogin()) return;
+    setPage("home");
     await loadPosts("mine");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function showAllPosts() {
+    setPage("home");
     await loadPosts("all");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -353,7 +489,9 @@ export default function App() {
             <div className="user-info">
               {user ? (
                 <>
-                  <span>{user.nickname}</span>
+                  <button className="user-name" type="button" onClick={openProfilePage}>
+                    {user.nickname}
+                  </button>
                   <button type="button" onClick={logout}>로그아웃</button>
                 </>
               ) : (
@@ -371,70 +509,125 @@ export default function App() {
       <div className="wrap">
         {message && <div className={`message ${message.type}`}>{message.text}</div>}
 
-        <section className="hero">
-          <h1>Blog Project</h1>
-        </section>
-
-        <main>
-          <section aria-label="글 목록" className="card" id="posts">
-            <div className="card-header">
-              <h2>{postScope === "mine" ? "내 글" : "최근 글"}</h2>
-              <span>{posts.length} post{posts.length === 1 ? "" : "s"}</span>
-            </div>
-            <div className="card-body">
-              {loadingPosts ? (
-                <div className="loading">
-                  <div className="spinner" />
-                  <div className="loading-text">글을 불러오는 중...</div>
-                </div>
-              ) : posts.length === 0 ? (
-                <div className="empty">아직 작성된 글이 없습니다.</div>
-              ) : (
-                posts.map((post) => (
-                  <article className="post" key={post.postId}>
-                    <div className="meta">
-                      <span className="badge">{post.authorNickname}</span>
-                      <span>{formatDate(post.createdAt)}</span>
-                      <span>·</span>
-                      <span>좋아요 {post.likeCount || 0}</span>
-                      {user && (
-                        <button
-                          className="btn like compact"
-                          type="button"
-                          onClick={() => togglePostLike(post.postId)}
-                        >
-                          좋아요
-                        </button>
-                      )}
-                    </div>
-                    <button className="post-row" type="button" onClick={() => openPost(post.postId)}>
-                      <h3>{post.title}</h3>
-                      <div className="post-excerpt">{post.content || ""}</div>
-                    </button>
-                  </article>
-                ))
-              )}
-            </div>
-          </section>
-
-          <aside aria-label="사이드바" className="card">
-            <div className="card-header">
-              <h2>정보</h2>
-              <span>Info</span>
-            </div>
-            <div className="card-body">
-              <div className="info-text">
-                <p><strong>사용 방법:</strong></p>
-                <ol>
-                  <li>회원가입을 진행하세요</li>
-                  <li>로그인하면 글을 작성할 수 있습니다</li>
-                  <li>글을 클릭하면 상세 내용과 댓글을 볼 수 있습니다</li>
-                  <li>좋아요 버튼으로 글과 댓글에 반응하세요</li>
-                </ol>
+        {page === "profile" ? (
+          <section className="profile-page" aria-label="내 정보">
+            <div className="page-head">
+              <div>
+                <h1>내 정보</h1>
+                <p>로그인한 계정 정보를 확인할 수 있습니다.</p>
               </div>
+              <button className="btn" type="button" onClick={showAllPosts}>목록으로</button>
             </div>
-          </aside>
-        </main>
+
+            <section className="card profile-card">
+              <div className="card-header">
+                <h2>계정 정보</h2>
+                <span>Profile</span>
+              </div>
+              <div className="card-body">
+                {loadingProfile ? (
+                  <div className="loading compact-loading">
+                    <div className="spinner" />
+                    <div className="loading-text">내 정보를 불러오는 중...</div>
+                  </div>
+                ) : (
+                  <>
+                    <dl className="profile-list">
+                      <div>
+                        <dt>닉네임</dt>
+                        <dd>{profile?.nickname || user?.nickname || "-"}</dd>
+                      </div>
+                      <div>
+                        <dt>이메일</dt>
+                        <dd>{profile?.email || user?.email || "-"}</dd>
+                      </div>
+                      <div>
+                        <dt>회원 번호</dt>
+                        <dd>{profile?.userId || user?.userId || "-"}</dd>
+                      </div>
+                    </dl>
+                    <div className="profile-danger">
+                      <div>
+                        <h3>회원 탈퇴</h3>
+                        <p>탈퇴하면 계정과 작성한 글, 댓글이 삭제됩니다.</p>
+                      </div>
+                      <button className="btn danger" type="button" onClick={deleteUser}>
+                        회원 탈퇴
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </section>
+          </section>
+        ) : (
+          <>
+            <section className="hero">
+              <h1>Blog Project</h1>
+            </section>
+
+            <main>
+              <section aria-label="글 목록" className="card" id="posts">
+                <div className="card-header">
+                  <h2>{postScope === "mine" ? "내 글" : "최근 글"}</h2>
+                  <span>{posts.length} post{posts.length === 1 ? "" : "s"}</span>
+                </div>
+                <div className="card-body">
+                  {loadingPosts ? (
+                    <div className="loading">
+                      <div className="spinner" />
+                      <div className="loading-text">글을 불러오는 중...</div>
+                    </div>
+                  ) : posts.length === 0 ? (
+                    <div className="empty">아직 작성된 글이 없습니다.</div>
+                  ) : (
+                    posts.map((post) => (
+                      <article className="post" key={post.postId}>
+                        <div className="meta">
+                          <span className="badge">{post.authorNickname}</span>
+                          <span>{formatDate(post.createdAt)}</span>
+                          <span>·</span>
+                          <span>좋아요 {post.likeCount || 0}</span>
+                          {user && (
+                            <button
+                              className="btn like compact"
+                              type="button"
+                              onClick={() => togglePostLike(post.postId)}
+                            >
+                              좋아요
+                            </button>
+                          )}
+                        </div>
+                        <button className="post-row" type="button" onClick={() => openPost(post.postId)}>
+                          <h3>{post.title}</h3>
+                          <div className="post-excerpt">{post.content || ""}</div>
+                        </button>
+                      </article>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              <aside aria-label="사이드바" className="card">
+                <div className="card-header">
+                  <h2>정보</h2>
+                  <span>Info</span>
+                </div>
+                <div className="card-body">
+                  <div className="info-text">
+                    <p><strong>사용 방법:</strong></p>
+                    <ol>
+                      <li>회원가입을 진행하세요</li>
+                      <li>로그인하면 글을 작성할 수 있습니다</li>
+                      <li>글을 클릭하면 상세 내용과 댓글을 볼 수 있습니다</li>
+                      <li>좋아요 버튼으로 글과 댓글에 반응하세요</li>
+                    </ol>
+                  </div>
+                </div>
+              </aside>
+            </main>
+          </>
+        )}
 
         <div className="footer">
           © {new Date().getFullYear()} Blog Project. All rights reserved.
@@ -442,80 +635,159 @@ export default function App() {
       </div>
 
       {modal === "post" && selectedPost && (
-        <Modal title={selectedPost.title} onClose={closeModal}>
-          <div className="post-detail">
-            <div className="meta">
-              <span className="badge">{selectedPost.authorNickname}</span>
-              <span>{formatDateTime(selectedPost.createdAt)}</span>
-              <span>·</span>
-              <span>좋아요 {selectedPost.likeCount || 0}</span>
-            </div>
-            <div className="post-content">{selectedPost.content}</div>
-            <div className="actions detail-actions">
-              {user && (
-                <button className="btn like" type="button" onClick={() => togglePostLike(selectedPost.postId)}>
-                  좋아요
-                </button>
-              )}
-              {user?.nickname === selectedPost.authorNickname && (
-                <button className="btn danger" type="button" onClick={() => deletePost(selectedPost.postId)}>
-                  삭제
-                </button>
-              )}
-            </div>
-          </div>
-
-          <section className="comments-section">
-            <h4>댓글</h4>
-            {postComments.length === 0 ? (
-              <div className="empty">아직 댓글이 없습니다.</div>
-            ) : (
-              postComments.map((comment) => {
-                const isMyComment = user?.nickname === comment.authorNickname;
-                return (
-                  <div className="comment" key={comment.commentId}>
-                    <div className="comment-header">
-                      <span className="comment-author">{comment.authorNickname}</span>
-                      <span className="comment-date">{formatDateTime(comment.createdAt)}</span>
-                    </div>
-                    <div className="comment-content">{comment.content}</div>
-                    <div className="comment-actions">
-                      {user ? (
-                        <button className="btn like small" type="button" onClick={() => toggleCommentLike(comment.commentId)}>
-                          좋아요 {comment.likeCount || 0}
-                        </button>
-                      ) : (
-                        <span className="muted-small">좋아요 {comment.likeCount || 0}</span>
-                      )}
-                      {isMyComment && (
-                        <button className="btn danger small" type="button" onClick={() => deleteComment(comment.commentId)}>
-                          삭제
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-
-            <form className="comment-form" onSubmit={createComment}>
+        <Modal title={isEditingPost ? "게시글 수정" : selectedPost.title} onClose={closeModal}>
+          {isEditingPost ? (
+            <form onSubmit={handleUpdatePost}>
+              {formError && <div className="message error">{formError}</div>}
               <div className="form-group">
-                <textarea
-                  placeholder="댓글을 입력하세요..."
-                  rows="3"
-                  value={commentContent}
-                  onChange={(event) => setCommentContent(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault();
-                      createComment(event);
-                    }
-                  }}
+                <label htmlFor="editPostTitle">제목</label>
+                <input
+                  id="editPostTitle"
+                  placeholder="글 제목을 입력하세요"
+                  type="text"
+                  value={editDraft.title}
+                  onChange={(event) => setEditDraft((prev) => ({ ...prev, title: event.target.value }))}
                 />
               </div>
-              <button className="btn primary" type="submit">댓글 작성</button>
+              <div className="form-group">
+                <label htmlFor="editPostContent">내용</label>
+                <textarea
+                  id="editPostContent"
+                  placeholder="글 내용을 입력하세요"
+                  rows="8"
+                  value={editDraft.content}
+                  onChange={(event) => setEditDraft((prev) => ({ ...prev, content: event.target.value }))}
+                />
+              </div>
+              <div className="actions form-actions">
+                <button className="btn primary" type="submit">저장</button>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => {
+                    setIsEditingPost(false);
+                    setEditDraft(emptyDraft);
+                    setFormError("");
+                  }}
+                >
+                  취소
+                </button>
+              </div>
             </form>
-          </section>
+          ) : (
+            <>
+              <div className="post-detail">
+                <div className="meta">
+                  <span className="badge">{selectedPost.authorNickname}</span>
+                  <span>{formatDateTime(selectedPost.createdAt)}</span>
+                  <span>·</span>
+                  <span>좋아요 {selectedPost.likeCount || 0}</span>
+                </div>
+                <div className="post-content">{selectedPost.content}</div>
+                <div className="actions detail-actions">
+                  {user && (
+                    <button className="btn like" type="button" onClick={() => togglePostLike(selectedPost.postId)}>
+                      좋아요
+                    </button>
+                  )}
+                  {user?.nickname === selectedPost.authorNickname && (
+                    <>
+                      <button className="btn" type="button" onClick={startEditingPost}>
+                        수정
+                      </button>
+                      <button className="btn danger" type="button" onClick={() => deletePost(selectedPost.postId)}>
+                        삭제
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <section className="comments-section">
+                <h4>댓글</h4>
+                {postComments.length === 0 ? (
+                  <div className="empty">아직 댓글이 없습니다.</div>
+                ) : (
+                  postComments.map((comment) => {
+                    const isMyComment = user?.nickname === comment.authorNickname;
+                    const isEditingComment = editingCommentId === comment.commentId;
+                    return (
+                      <div className="comment" key={comment.commentId}>
+                        <div className="comment-header">
+                          <span className="comment-author">{comment.authorNickname}</span>
+                          <span className="comment-date">{formatDateTime(comment.createdAt)}</span>
+                        </div>
+                        {isEditingComment ? (
+                          <form className="comment-edit-form" onSubmit={(event) => updateComment(event, comment.commentId)}>
+                            <textarea
+                              aria-label="댓글 수정"
+                              rows="3"
+                              value={editCommentContent}
+                              onChange={(event) => setEditCommentContent(event.target.value)}
+                            />
+                            <div className="comment-actions">
+                              <button className="btn primary small" type="submit">저장</button>
+                              <button
+                                className="btn small"
+                                type="button"
+                                onClick={() => {
+                                  setEditingCommentId(null);
+                                  setEditCommentContent("");
+                                }}
+                              >
+                                취소
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <>
+                            <div className="comment-content">{comment.content}</div>
+                            <div className="comment-actions">
+                              {user ? (
+                                <button className="btn like small" type="button" onClick={() => toggleCommentLike(comment.commentId)}>
+                                  좋아요 {comment.likeCount || 0}
+                                </button>
+                              ) : (
+                                <span className="muted-small">좋아요 {comment.likeCount || 0}</span>
+                              )}
+                              {isMyComment && (
+                                <>
+                                  <button className="btn small" type="button" onClick={() => startEditingComment(comment)}>
+                                    수정
+                                  </button>
+                                  <button className="btn danger small" type="button" onClick={() => deleteComment(comment.commentId)}>
+                                    삭제
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+
+                <form className="comment-form" onSubmit={createComment}>
+                  <div className="form-group">
+                    <textarea
+                      placeholder="댓글을 입력하세요..."
+                      rows="3"
+                      value={commentContent}
+                      onChange={(event) => setCommentContent(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && !event.shiftKey) {
+                          event.preventDefault();
+                          createComment(event);
+                        }
+                      }}
+                    />
+                  </div>
+                  <button className="btn primary" type="submit">댓글 작성</button>
+                </form>
+              </section>
+            </>
+          )}
         </Modal>
       )}
 

@@ -2,6 +2,10 @@ package com.siillvergun.blog.user.service;
 
 import com.siillvergun.blog.common.error.CustomException;
 import com.siillvergun.blog.common.error.ErrorCode;
+import com.siillvergun.blog.comment.entity.Comment;
+import com.siillvergun.blog.comment.repository.CommentLikeRepository;
+import com.siillvergun.blog.post.entity.Post;
+import com.siillvergun.blog.post.repository.PostLikeRepository;
 import com.siillvergun.blog.user.dto.*;
 import com.siillvergun.blog.user.entity.User;
 import com.siillvergun.blog.user.repository.UserRepository;
@@ -22,6 +26,8 @@ import java.util.List;
 public class UserService {
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final PostLikeRepository postLikeRepository;
+    private final CommentLikeRepository commentLikeRepository;
 
     // 토큰에서 userId 가져오는 메서드
     public Long getCurrentUserId(Authentication authentication) {
@@ -116,6 +122,20 @@ public class UserService {
     @Transactional
     public void deleteUser(Long id) {
         User user = findUserById(id);
+
+        for (Post post : List.copyOf(user.getPosts())) {
+            for (Comment comment : List.copyOf(post.getComments())) {
+                commentLikeRepository.deleteByComment(comment);
+            }
+            postLikeRepository.deleteByPost(post);
+        }
+
+        for (Comment comment : List.copyOf(user.getComments())) {
+            commentLikeRepository.deleteByComment(comment);
+        }
+
+        postLikeRepository.deleteByUser(user);
+        commentLikeRepository.deleteByUser(user);
 
         // 2. 삭제 실행
         log.warn("사용자 삭제 실행 - ID: {}", id);
