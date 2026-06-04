@@ -12,3 +12,5 @@ out/
 *.iml
 
 *.log
+
+benchmark/results/
