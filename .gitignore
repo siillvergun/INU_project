@@ -13,6 +13,4 @@ out/
 
 *.log
 
-benchmark/results/
-
 application*

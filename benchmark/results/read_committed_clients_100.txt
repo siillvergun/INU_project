@@ -1,0 +1,12 @@
+isolation: READ COMMITTED
+clients: 100
+jobs: 4
+duration_sec: 60
+database: benchmark
+workload: /workload/blog_mixed_workload.sql
+reset_db: true
+exit_status: 0
+transactions: 306594
+failed_transactions: 0
+latency_average_ms: 19.576
+tps: 5108.213608

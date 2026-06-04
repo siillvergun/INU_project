@@ -1,0 +1,12 @@
+isolation: SERIALIZABLE
+clients: 50
+jobs: 4
+duration_sec: 60
+database: benchmark
+workload: /workload/blog_mixed_workload.sql
+reset_db: true
+exit_status: 2
+transactions: 233671
+failed_transactions: 28297
+latency_average_ms: 11.451
+tps: 3894.805856
